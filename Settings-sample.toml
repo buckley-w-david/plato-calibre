@@ -1,0 +1,13 @@
+# The network location where your calibre-server instance can be found
+base_url = "?"
+
+# Login information
+username = "?"
+password = "?"
+
+# Category information
+category = 1
+item = 2
+
+# If you have multiple libraries, set which one the categories are in
+# library = "calibre-library"
