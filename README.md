@@ -4,22 +4,39 @@ This is a [Plato hook](https://github.com/baskerville/plato/blob/master/doc/HOOK
 
 It will automatically fetch books from a specified category in a [calibre content server](https://manual.calibre-ebook.com/server.html) instance.
 
-## "Installing"
+## Building
 
-Clone and [build Plato](https://github.com/baskerville/plato/blob/master/doc/BUILD.md#plato).
-This will result in an environment ready to build `plato-calibre`
+### Prep
+0. Clone this repo.
+1. Download the [Plato release](https://github.com/baskerville/plato/releases) you're targeting, unzip it somewhere.
+2. Copy the `libs` directory with its contents from the release zip into this repo directory.
+3. Run `./link.sh`
+
+### Compile
 
 ```bash
-# Copy of the libs that are generated when building Plato
-$ cp -r plato/libs .
-# Build
 $ cargo build --release --target=arm-unknown-linux-gnueabihf
+```
+
+## "Install"
+
+```bash
 # Create plato-calibre directory
 $ mkdir -p "$KOBO_MOUNT_DIR/.adds/plato/bin/plato-calibre/"
 # Copy the binary over
 $ cp target/arm-unknown-linux-gnueabihf/release/plato-calibre "$KOBO_MOUNT_DIR/.adds/plato/bin/plato-calibre/"
 # Copy over the settings (After putting in your info)
 $ cp Settings-sample.toml "$KOBO_MOUNT_DIR/.adds/plato/bin/plato-calibre/Settings.toml"
+```
+
+Once that's done you'll need to add the hook to your Plato settings file `$KOBO_MOUNT_DIR/.adds/plato/Settings.toml`.
+```toml
+[[libraries.hooks]]
+path = "Calibre"
+program = "bin/plato-calibre/plato-calibre"
+sort-method = "added"
+first-column = "title-and-author"
+second-column = "progress"
 ```
 
 ## Settings
