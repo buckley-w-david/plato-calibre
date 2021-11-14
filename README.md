@@ -71,3 +71,7 @@ There are two fields in the settings, `category` and `item`, that indicate what 
 ```
 
 Depending on exactly what set of books you want synced, you would go after a different category. I have a ton of books in my library so I wanted to avoid syncing the entire thing. If that isn't an issue for you, just use the "All books" category. If you fetch the category info for that it will give you a `books_in` url that should return everything.
+
+## TODO
+
+1. The wifi/network setup code is a wonky, have to look at it. If you start the hook with wifi *OFF* it seems to consistently work.
