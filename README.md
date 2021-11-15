@@ -12,6 +12,10 @@ It will automatically fetch books from a specified category in a [calibre conten
 2. Copy the `libs` directory with its contents from the release zip into this repo directory.
 3. Run `./link.sh`
 
+I'm actually not sure if the libraries are even needed, but I'm mostly just cribbing from the build setup that Plato uses.
+
+TODO: Figure out if `build.rs` and the `libs/` are at all necessary.
+
 ### Compile
 
 ```bash
