@@ -4,17 +4,13 @@ This is a [Plato hook](https://github.com/baskerville/plato/blob/master/doc/HOOK
 
 It will automatically fetch books from a specified category in a [calibre content server](https://manual.calibre-ebook.com/server.html) instance.
 
+Currently it depends on features only in [my fork of Plato](https://github.com/buckley-w-david/plato/tree/update-document-event), but I hope to get my changes upstreamed.
+
 ## Building
 
 ### Prep
 0. Clone this repo.
-1. Download the [Plato release](https://github.com/baskerville/plato/releases) you're targeting, unzip it somewhere.
-2. Copy the `libs` directory with its contents from the release zip into this repo directory.
-3. Run `./link.sh`
-
-I'm actually not sure if the libraries are even needed, but I'm mostly just cribbing from the build setup that Plato uses.
-
-TODO: Figure out if `build.rs` and the `libs/` are at all necessary.
+1. Download the `gcc-linaro-4.9.4-2017.01` release for whatever your environment is [here](https://releases.linaro.org/components/toolchain/binaries/4.9-2017.01/arm-linux-gnueabihf/). Decompress the archive and have the `bin` directory in there somewhere on your path.
 
 ### Compile
 

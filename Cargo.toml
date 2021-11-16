@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.45"
+chrono = "0.4.19"
 const_format = "0.2.22"
+fxhash = "0.2.1"
+regex = "1.5.4"
 reqwest = { version = "0.11.6", default-features = false, features = ["rustls-tls", "json", "blocking"] }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.70"

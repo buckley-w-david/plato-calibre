@@ -1,4 +1,6 @@
 use anyhow::{format_err, Context, Error};
+use chrono::prelude::*;
+use chrono::Local;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
@@ -118,12 +120,24 @@ fn main() -> Result<(), Error> {
             .send()?
             .json()?;
 
-        if category_items.get("num").and_then(JsonValue::as_u64).unwrap() == 0 {
+        if category_items
+            .get("num")
+            .and_then(JsonValue::as_u64)
+            .unwrap()
+            == 0
+        {
             break;
         } else {
             if let Some(book_ids) = category_items.get("book_ids").and_then(JsonValue::as_array) {
                 for id in book_ids {
-                    let url = format!("{}/ajax/book/{}/{}", &settings.base_url, id, &settings.library);
+                    if sigterm.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    let url = format!(
+                        "{}/ajax/book/{}/{}",
+                        &settings.base_url, id, &settings.library
+                    );
 
                     let metadata: JsonValue = client
                         .get(&url)
@@ -133,7 +147,11 @@ fn main() -> Result<(), Error> {
                         .send()?
                         .json()?;
 
-                    let title = metadata.get("title").and_then(JsonValue::as_str).unwrap(); //FIXME: unwrap
+                    let title = metadata
+                        .get("title")
+                        .and_then(JsonValue::as_str)
+                        .unwrap_or_default();
+
                     let author = metadata
                         .get("authors")
                         .and_then(JsonValue::as_array)
@@ -143,11 +161,50 @@ fn main() -> Result<(), Error> {
                         .collect::<Vec<&str>>()
                         .join(", ");
 
-                    let epub_path = save_path.join(&format!("{}.epub", id));
-                    let update = epub_path.exists();
+                    let timestamp = metadata
+                        .get("timestamp")
+                        .and_then(JsonValue::as_str)
+                        .unwrap_or_default()
+                        .parse::<DateTime<Utc>>()
+                        .unwrap_or(Utc::now());
 
+                    let url_id = metadata
+                        .pointer("/identifiers/url")
+                        .and_then(JsonValue::as_str)
+                        .unwrap_or_default();
+                    let hash_id = fxhash::hash64(url_id).to_string();
+
+                    let event = json!({
+                        "type": "search",
+                        "path": save_path,
+                        "query": format!("'i ^{}$", hash_id),
+                    });
+                    println!("{}", event);
+                    let mut line = String::new();
+                    io::stdin().read_line(&mut line)?;
+
+                    if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
+                        if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
+                            let info = results.first();
+                            if let Some(Some(existing_timestamp)) = info.map(|v| v.get("added").and_then(JsonValue::as_str)) {
+                                if let Ok(tt) = Utc.datetime_from_str(existing_timestamp, "%Y-%m-%d %H:%M:%S") {
+                                    if (tt - timestamp).num_seconds() == 0 {
+                                        // Man this is ugly
+                                        // If the added time close enough, don't sync
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let epub_path = save_path.join(&format!("{}.epub", hash_id));
+                    let exists = epub_path.exists();
                     let mut file = File::create(&epub_path)?;
-                    let url = format!("{}/get/EPUB/{}/{}", &settings.base_url, id, &settings.library);
+                    let url = format!(
+                        "{}/get/EPUB/{}/{}",
+                        &settings.base_url, id, &settings.library
+                    );
 
                     let response = client
                         .get(&url)
@@ -162,33 +219,38 @@ fn main() -> Result<(), Error> {
                         continue;
                     }
 
-                    if !update {
-                        // This is a littly janky
-                        // If the book already existed, we still download and clobber item
-                        // we just don't tell plato about it
-                        // This is because if we send an addDocument then we'll get duplicates
-                        if let Ok(path) = epub_path.strip_prefix(&library_path) {
-                            let file_info = json!({
-                                "path": path,
-                                "kind": "epub",
-                                "size": file.metadata().ok()
-                                            .map_or(0, |m| m.len()),
-                            });
+                    if let Ok(path) = epub_path.strip_prefix(&library_path) {
+                        let file_info = json!({
+                            "path": path,
+                            "kind": "epub",
+                            "size": file.metadata().ok()
+                                        .map_or(0, |m| m.len()),
+                        });
 
-                            let info = json!({
-                                "title": title,
-                                "author": author,
-                                "identifier": id.to_string(),
-                                "file": file_info,
-                            });
+                        let info = json!({
+                            "title": title,
+                            "author": author,
+                            "identifier": hash_id,
+                            "file": file_info,
+                            "added": timestamp.with_timezone(&Local)
+                                               .format("%Y-%m-%d %H:%M:%S")
+                                               .to_string(),
+                        });
 
-                            let event = json!({
+                        let event = if !exists {
+                            json!({
                                 "type": "addDocument",
                                 "info": &info,
-                            });
+                            })
+                        } else {
+                            json!({
+                                "type": "updateDocument",
+                                "path": path,
+                                "info": &info,
+                            })
+                        };
 
-                            println!("{}", event);
-                        }
+                        println!("{}", event);
                     }
                 }
             }
