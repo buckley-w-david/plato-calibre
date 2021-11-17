@@ -7,7 +7,6 @@ mod types;
 use anyhow::{format_err, Context, Error};
 use chrono::prelude::*;
 use reqwest::blocking::Client;
-use serde_json::{Value as JsonValue};
 use std::env;
 use std::fs::{self, File};
 use std::path::PathBuf;
@@ -84,18 +83,9 @@ fn main() -> Result<(), Error> {
         })
         .send()
         {
-            if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
-                let info = results.first();
-                if let Some(Some(existing_timestamp)) =
-                    info.map(|v| v.get("added").and_then(JsonValue::as_str))
-                {
-                    if let Ok(tt) = Utc.datetime_from_str(existing_timestamp, "%Y-%m-%d %H:%M:%S") {
-                        if (tt - metadata.timestamp).num_seconds() == 0 {
-                            // Man this is ugly
-                            // If the added time close enough, don't sync
-                            continue;
-                        }
-                    }
+            if let Some(info) = event.results.first() {
+                if info.added == metadata.timestamp.with_nanosecond(0).unwrap() {
+                    continue;
                 }
             }
         }

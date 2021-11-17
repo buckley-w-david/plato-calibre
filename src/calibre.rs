@@ -1,11 +1,10 @@
 use anyhow::Error;
 use chrono::prelude::*;
 use reqwest::blocking::Client;
-use reqwest::Result as ReqwestResult;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::utils::{authors, datetime_format, identifier};
+use crate::utils::{authors, calibre_datetime_format as datetime_format, identifier};
 use const_format::concatcp;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");

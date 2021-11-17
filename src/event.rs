@@ -1,5 +1,6 @@
 use serde_json::{json, Value as JsonValue};
 use std::io;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 use crate::types::Info;
@@ -18,8 +19,22 @@ pub enum Event<'a> {
 
 // Events that we receive
 pub enum Response {
-    Search(JsonValue),
-    NetworkStatus(JsonValue),
+    Search(SearchResults),
+    NetworkStatus(NetworkResults),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SearchResults {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub results: Vec<Info>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NetworkResults {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub status: String, // TODO: This *should* probably be a bool
 }
 
 impl Event<'_> {
@@ -78,10 +93,14 @@ impl Response {
             if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
                 match event.get("type").and_then(JsonValue::as_str) {
                     Some("search") => {
-                        res = Some(Response::Search(event));
+                        if let Ok(results) = serde_json::from_str::<SearchResults>(&line) {
+                            res = Some(Response::Search(results));
+                        }
                     }
                     Some("network") => {
-                        res = Some(Response::NetworkStatus(event));
+                        if let Ok(results) = serde_json::from_str::<NetworkResults>(&line) {
+                            res = Some(Response::NetworkStatus(results));
+                        }
                     }
                     _ => res = None,
                 };
