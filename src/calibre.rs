@@ -14,16 +14,16 @@ const USER_AGENT: &'static str = concatcp!(NAME, " ", VERSION);
 pub struct ContentServer {
     client: Client,
     base_url: String,
-    username: String,
-    password: String,
+    username: Option<String>,
+    password: Option<String>,
 }
 
 impl ContentServer {
     pub fn new(
         client: Client,
         base_url: String,
-        username: String,
-        password: String,
+        username: Option<String>,
+        password: Option<String>,
     ) -> ContentServer {
         ContentServer {
             client,
@@ -50,25 +50,26 @@ impl ContentServer {
     pub fn metadata(&self, book_id: u64, library: &str) -> Result<BookMetadata, Error> {
         let url = format!("{}/ajax/book/{}/{}", self.base_url, book_id, library);
 
-        Ok(self
-            .client
-            .get(&url)
-            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-            .basic_auth(&self.username, Some(&self.password))
-            .send()?
-            .json()?)
+        let mut request_builder = self.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
+
+        if let Some(username) = &self.username {
+            request_builder = request_builder.basic_auth(username, self.password.as_ref())
+        }
+
+        Ok(request_builder.send()?.json()?)
     }
 
     pub fn epub<W: ?Sized>(&self, book_id: u64, library: &str, w: &mut W) -> Result<u64, reqwest::Error> 
         where W: std::io::Write
     {
         let url = format!("{}/get/EPUB/{}/{}", self.base_url, book_id, library);
+        let mut request_builder = self.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
 
-        self.client
-            .get(&url)
-            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-            .basic_auth(&self.username, Some(&self.password))
-            .send().and_then(|mut body| body.copy_to(w))
+        if let Some(username) = &self.username {
+            request_builder = request_builder.basic_auth(username, self.password.as_ref())
+        }
+
+        request_builder.send().and_then(|mut body| body.copy_to(w))
     }
 }
 
@@ -105,17 +106,13 @@ impl Iterator for BooksIn<'_> {
                 self.content_server.base_url, self.category, self.item, self.library
             );
 
-            let response = self
-                .content_server
-                .client
-                .get(&url)
-                .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-                .basic_auth(
-                    &self.content_server.username,
-                    Some(&self.content_server.password),
-                )
-                .query(&query)
-                .send();
+            let mut request_builder = self.content_server.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
+
+            if let Some(username) = &self.content_server.username {
+                request_builder = request_builder.basic_auth(username, self.content_server.password.as_ref())
+            }
+
+            let response = request_builder.query(&query).send();
 
             if let Ok(response) = response {
                 if let Ok(category_items) = response.json::<BooksInResposne>() {

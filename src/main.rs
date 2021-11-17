@@ -42,6 +42,8 @@ fn main() -> Result<(), Error> {
     let settings = settings::load_toml::<settings::Settings, _>(SETTINGS_PATH)
         .with_context(|| format!("can't load settings from {}", SETTINGS_PATH))?;
 
+    dbg!(&settings);
+
     if !online {
         if !wifi {
             Event::Notify("Establishing a network connection.").send();
