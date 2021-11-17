@@ -119,14 +119,14 @@ impl Iterator for BooksIn<'_> {
 
             if let Ok(response) = response {
                 if let Ok(category_items) = response.json::<BooksInResposne>() {
+                    if category_items.num != 0 {
+                        result = Some(category_items.book_ids[0]);
+                    }
+
                     self.content = Some(category_items.book_ids);
                     self.idx = 1;
                     self.count = category_items.num as usize;
                     self.offset += self.num;
-
-                    if self.count != 0 {
-                        result = Some(self.content.as_ref().unwrap()[0]);
-                    }
                 }
             }
         }
