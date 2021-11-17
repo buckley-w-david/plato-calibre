@@ -22,5 +22,5 @@ pub struct Info {
     pub file: FileInfo,
 
     #[serde(with = "datetime_format")]
-    pub added: DateTime<Utc>,
+    pub added: DateTime<Local>,
 }

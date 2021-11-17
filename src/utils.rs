@@ -1,25 +1,19 @@
 pub mod datetime_format {
-    use chrono::prelude::*;
-    use chrono::{DateTime, Utc};
+    use chrono::{DateTime, Local, TimeZone};
     use serde::{self, Deserialize, Serializer, Deserializer};
 
     pub const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
-    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let s = format!("{}", date.format(FORMAT));
         serializer.serialize_str(&s)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error> where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;
-        Utc.datetime_from_str(&s,FORMAT).map_err(serde::de::Error::custom)
-        // s.parse::<DateTime<Utc>>().map_err(serde::de::Error::custom)
+        Local.datetime_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
     }
 }
-
 
 pub mod calibre_datetime_format {
     use chrono::{DateTime, Utc};

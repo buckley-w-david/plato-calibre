@@ -85,6 +85,7 @@ fn main() -> Result<(), Error> {
         {
             if let Some(info) = event.results.first() {
                 if info.added == metadata.timestamp.with_nanosecond(0).unwrap() {
+                    println!("Skipping!");
                     continue;
                 }
             }
@@ -116,7 +117,7 @@ fn main() -> Result<(), Error> {
                 author: metadata.author,
                 identifier: hash_id,
                 file: file_info,
-                added: metadata.timestamp
+                added: metadata.timestamp.into()
             };
 
             let event = if !exists {
