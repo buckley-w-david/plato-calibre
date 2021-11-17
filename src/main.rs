@@ -1,4 +1,5 @@
 mod calibre;
+mod error;
 mod event;
 mod settings;
 mod types;
@@ -14,8 +15,8 @@ use std::sync::Arc;
 
 use calibre::ContentServer;
 use event::{Event, Response};
-use types::{Info, FileInfo};
-
+use types::{FileInfo, Info};
+use error::PlatoCalibreError;
 
 const SETTINGS_PATH: &str = "Settings.toml";
 
@@ -40,8 +41,6 @@ fn main() -> Result<(), Error> {
 
     let settings = settings::load_toml::<settings::Settings, _>(SETTINGS_PATH)
         .with_context(|| format!("can't load settings from {}", SETTINGS_PATH))?;
-
-    dbg!(&settings);
 
     if !online {
         if !wifi {
@@ -76,7 +75,11 @@ fn main() -> Result<(), Error> {
 
         let metadata = content_server.metadata(id, &settings.library)?;
 
-        let hash_id = fxhash::hash64(&metadata.identifier).to_string();
+        let calibre_id = &metadata
+            .identifiers
+            .get(&settings.identifier)
+            .ok_or(PlatoCalibreError::new("Unable to find identifier"))?;
+        let hash_id = fxhash::hash64(calibre_id).to_string();
 
         if let Some(Response::Search(event)) = (Event::Search {
             path: &save_path,
@@ -96,8 +99,7 @@ fn main() -> Result<(), Error> {
         let exists = epub_path.exists();
         let mut file = File::create(&epub_path)?;
 
-        let response = content_server
-            .epub(id, &settings.library, &mut file);
+        let response = content_server.epub(id, &settings.library, &mut file);
 
         if let Err(err) = response {
             eprintln!("Can't download {}: {:#}.", id, err);
@@ -109,8 +111,7 @@ fn main() -> Result<(), Error> {
             let file_info = FileInfo {
                 path: path.to_path_buf(),
                 kind: "epub".to_string(),
-                size: file.metadata().ok()
-                            .map_or(0, |m| m.len()),
+                size: file.metadata().ok().map_or(0, |m| m.len()),
             };
 
             let info = Info {
@@ -118,7 +119,7 @@ fn main() -> Result<(), Error> {
                 author: metadata.author,
                 identifier: hash_id,
                 file: file_info,
-                added: metadata.timestamp.into()
+                added: metadata.timestamp.into(),
             };
 
             let event = if !exists {

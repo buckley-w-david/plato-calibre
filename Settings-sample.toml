@@ -5,6 +5,9 @@ base_url = "?"
 # username = "?"
 # password = "?"
 
+# Each book needs an identifier
+identifier = "?"
+
 # Category information
 category = 1
 item = 2

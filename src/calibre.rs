@@ -3,6 +3,7 @@ use chrono::prelude::*;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashMap;
 
 use const_format::concatcp;
 
@@ -49,7 +50,10 @@ impl ContentServer {
     pub fn metadata(&self, book_id: u64, library: &str) -> Result<BookMetadata, Error> {
         let url = format!("{}/ajax/book/{}/{}", self.base_url, book_id, library);
 
-        let mut request_builder = self.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
+        let mut request_builder = self
+            .client
+            .get(&url)
+            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
 
         if let Some(username) = &self.username {
             request_builder = request_builder.basic_auth(username, self.password.as_ref())
@@ -58,11 +62,20 @@ impl ContentServer {
         Ok(request_builder.send()?.json()?)
     }
 
-    pub fn epub<W: ?Sized>(&self, book_id: u64, library: &str, w: &mut W) -> Result<u64, reqwest::Error> 
-        where W: std::io::Write
+    pub fn epub<W: ?Sized>(
+        &self,
+        book_id: u64,
+        library: &str,
+        w: &mut W,
+    ) -> Result<u64, reqwest::Error>
+    where
+        W: std::io::Write,
     {
         let url = format!("{}/get/EPUB/{}/{}", self.base_url, book_id, library);
-        let mut request_builder = self.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
+        let mut request_builder = self
+            .client
+            .get(&url)
+            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
 
         if let Some(username) = &self.username {
             request_builder = request_builder.basic_auth(username, self.password.as_ref())
@@ -105,10 +118,15 @@ impl Iterator for BooksIn<'_> {
                 self.content_server.base_url, self.category, self.item, self.library
             );
 
-            let mut request_builder = self.content_server.client.get(&url).header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
+            let mut request_builder = self
+                .content_server
+                .client
+                .get(&url)
+                .header(reqwest::header::USER_AGENT, USER_AGENT.to_string());
 
             if let Some(username) = &self.content_server.username {
-                request_builder = request_builder.basic_auth(username, self.content_server.password.as_ref())
+                request_builder =
+                    request_builder.basic_auth(username, self.content_server.password.as_ref())
             }
 
             let response = request_builder.query(&query).send();
@@ -137,19 +155,23 @@ struct BooksInResposne {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Identifier {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct BookMetadata {
     #[serde(with = "authors", rename = "authors")]
     pub author: String,
 
     pub title: String,
 
-    #[serde(with = "identifier", rename = "identifiers")]
-    pub identifier: String,
+    pub identifiers: HashMap<String, String>,
 
     #[serde(with = "datetime_format")]
     pub timestamp: DateTime<Utc>,
 }
-
 
 mod datetime_format {
     use chrono::{DateTime, Utc};
@@ -172,21 +194,5 @@ mod authors {
         D: Deserializer<'de>,
     {
         Ok(Vec::<String>::deserialize(deserializer)?.join(", "))
-    }
-}
-
-mod identifier {
-    use serde::{self, Deserialize, Deserializer};
-    use serde_json::Value;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Value::deserialize(deserializer)?
-            .get("url")
-            .and_then(Value::as_str)
-            .map(|v| v.to_string())
-            .ok_or(serde::de::Error::custom("url not found"))
     }
 }

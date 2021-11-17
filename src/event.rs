@@ -1,6 +1,6 @@
+use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::io;
-use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 use crate::types::Info;
@@ -9,10 +9,7 @@ use crate::types::Info;
 pub enum Event<'a> {
     Notify(&'a str),
     SetWifi(bool),
-    Search {
-        path: &'a PathBuf,
-        query: String,
-    },
+    Search { path: &'a PathBuf, query: String },
     AddDocument(Info),
     UpdateDocument(&'a Path, Info),
 }
@@ -65,7 +62,7 @@ impl Event<'_> {
                     "info": &info,
                 })
             }
-            Event::UpdateDocument (path, info) => {
+            Event::UpdateDocument(path, info) => {
                 json!({
                     "type": "updateDocument",
                     "path": path,
