@@ -34,8 +34,6 @@ impl<'a> ContentServer<'a> {
         BooksIn::new(self, category, item, library)
     }
 
-    // TODO: Change return to Result<BookMetadata, Error>
-    // Will need to write Deserialize code for most fields
     pub fn metadata(&self, book_id: u64, library: &str) -> Result<BookMetadata, Error> {
         let url = format!(
             "{}/ajax/book/{}/{}",
@@ -52,7 +50,7 @@ impl<'a> ContentServer<'a> {
         )
     }
 
-    // TODO: don't return a response, probably take a writer or something
+    // TODO: don't return a response, probably take a Write or something and call copy_to
     pub fn epub(&self, book_id: u64, library: &'a str) -> ReqwestResult<reqwest::blocking::Response> {
         let url = format!(
             "{}/get/EPUB/{}/{}",
