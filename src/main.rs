@@ -1,7 +1,6 @@
 mod calibre;
 mod event;
 mod settings;
-mod utils;
 mod types;
 
 use anyhow::{format_err, Context, Error};
