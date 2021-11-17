@@ -1,46 +1,26 @@
+mod settings;
+mod event;
+mod calibre;
+
 use anyhow::{format_err, Context, Error};
 use chrono::prelude::*;
 use chrono::Local;
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::env;
 use std::fs::{self, File};
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use const_format::concatcp;
+use event::{Event, Response};
 
 const SETTINGS_PATH: &str = "Settings.toml";
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const NAME: &'static str = env!("CARGO_PKG_NAME");
 const USER_AGENT: &'static str = concatcp!(NAME, " ", VERSION);
-// const USER_AGENT: &'static str = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
-
-#[derive(Default, Debug, Serialize, Deserialize)]
-#[serde(default)]
-struct Settings {
-    base_url: String,
-    username: String,
-    password: String,
-    category: u64,
-    item: u64,
-    library: String,
-}
-
-fn load_toml<T, P: AsRef<Path>>(path: P) -> Result<T, Error>
-where
-    for<'a> T: Deserialize<'a>,
-{
-    let s = fs::read_to_string(path.as_ref())
-        .with_context(|| format!("can't read file {}", path.as_ref().display()))?;
-    toml::from_str(&s)
-        .with_context(|| format!("can't parse TOML content from {}", path.as_ref().display()))
-        .map_err(Into::into)
-}
 
 fn main() -> Result<(), Error> {
     let mut args = env::args().skip(1);
@@ -61,30 +41,18 @@ fn main() -> Result<(), Error> {
         .ok_or_else(|| format_err!("missing argument: online status"))
         .and_then(|v| v.parse::<bool>().map_err(Into::into))?;
 
-    let settings = load_toml::<Settings, _>(SETTINGS_PATH)
+    let settings = settings::load_toml::<settings::Settings, _>(SETTINGS_PATH)
         .with_context(|| format!("can't load settings from {}", SETTINGS_PATH))?;
 
     if !online {
         if !wifi {
-            let event = json!({
-                "type": "notify",
-                "message": "Establishing a network connection.",
-            });
-            println!("{}", event);
-            let event = json!({
-                "type": "setWifi",
-                "enable": true,
-            });
-            println!("{}", event);
+            Event::Notify("Establishing a network connection.").send();
+            Event::SetWifi(true).send();
         } else {
-            let event = json!({
-                "type": "notify",
-                "message": "Waiting for the network to come up.",
-            });
-            println!("{}", event);
+            Event::Notify("Waiting for the network to come up.").send();
+            // Throw away network coming up event
+            let _event = Response::receive();
         }
-        let mut line = String::new();
-        io::stdin().read_line(&mut line)?;
     }
 
     if !save_path.exists() {
@@ -174,16 +142,7 @@ fn main() -> Result<(), Error> {
                         .unwrap_or_default();
                     let hash_id = fxhash::hash64(url_id).to_string();
 
-                    let event = json!({
-                        "type": "search",
-                        "path": save_path,
-                        "query": format!("'i ^{}$", hash_id),
-                    });
-                    println!("{}", event);
-                    let mut line = String::new();
-                    io::stdin().read_line(&mut line)?;
-
-                    if let Ok(event) = serde_json::from_str::<JsonValue>(&line) {
+                    if let Some(Response::Search(event)) = (Event::Search{ path: &save_path, query: format!("'i ^{}$", hash_id)}).send() {
                         if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
                             let info = results.first();
                             if let Some(Some(existing_timestamp)) = info.map(|v| v.get("added").and_then(JsonValue::as_str)) {
@@ -238,19 +197,11 @@ fn main() -> Result<(), Error> {
                         });
 
                         let event = if !exists {
-                            json!({
-                                "type": "addDocument",
-                                "info": &info,
-                            })
+                            Event::AddDocument(&info)
                         } else {
-                            json!({
-                                "type": "updateDocument",
-                                "path": path,
-                                "info": &info,
-                            })
+                            Event::UpdateDocument{path: &path, info: &info}
                         };
-
-                        println!("{}", event);
+                        event.send();
                     }
                 }
             }
@@ -258,12 +209,7 @@ fn main() -> Result<(), Error> {
             query["offset"] = JsonValue::from(offset);
         }
     }
-    let message = "Finished syncing books!";
-    let event = json!({
-        "type": "notify",
-        "message": &message,
-    });
-    println!("{}", event);
+    Event::Notify("Finished syncing books!").send();
 
     Ok(())
 }
