@@ -1,14 +1,20 @@
 use serde_json::{json, Value as JsonValue};
 use std::io;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 // Events that we send
 pub enum Event<'a> {
     Notify(&'a str),
     SetWifi(bool),
-    Search{path: &'a PathBuf, query: String},
+    Search {
+        path: &'a PathBuf,
+        query: String,
+    },
     AddDocument(&'a serde_json::Value),
-    UpdateDocument{path: &'a Path, info: &'a serde_json::Value },
+    UpdateDocument {
+        path: &'a Path,
+        info: &'a serde_json::Value,
+    },
 }
 
 // Events that we receive
@@ -25,46 +31,42 @@ impl Event<'_> {
                     "type": "notify",
                     "message": msg,
                 })
-            },
+            }
             Event::SetWifi(state) => {
                 json!({
                     "type": "setWifi",
                     "enable": state,
                 })
-            },
-            Event::Search{ path, query } => {
+            }
+            Event::Search { path, query } => {
                 json!({
                     "type": "search",
                     "path": path,
                     "query": query,
                 })
-            },
+            }
             // TODO: Should I made a real info struct?
             Event::AddDocument(info) => {
                 json!({
                     "type": "addDocument",
                     "info": &info,
                 })
-            },
-            Event::UpdateDocument{ path, info } => {
+            }
+            Event::UpdateDocument { path, info } => {
                 json!({
                     "type": "updateDocument",
                     "path": path,
                     "info": &info,
                 })
-            },
+            }
         };
 
         println!("{}", event);
 
         match self {
-            Event::Search{..} => {
-                Response::receive()
-            }
-            Event::SetWifi{..} => {
-                Response::receive()
-            }
-            _ => None
+            Event::Search { .. } => Response::receive(),
+            Event::SetWifi { .. } => Response::receive(),
+            _ => None,
         }
     }
 }
@@ -79,11 +81,11 @@ impl Response {
                 match event.get("type").and_then(JsonValue::as_str) {
                     Some("search") => {
                         res = Some(Response::Search(event));
-                    },
+                    }
                     Some("network") => {
                         res = Some(Response::NetworkStatus(event));
-                    },
-                    _ => res = None
+                    }
+                    _ => res = None,
                 };
             }
         }

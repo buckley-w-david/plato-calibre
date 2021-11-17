@@ -2,11 +2,11 @@ use anyhow::Error;
 use chrono::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::Result as ReqwestResult;
-use serde_json::json;
 use serde::Deserialize;
+use serde_json::json;
 
+use crate::utils::{authors, datetime_format, identifier};
 use const_format::concatcp;
-use crate::utils::{datetime_format, authors, identifier};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -20,7 +20,12 @@ pub struct ContentServer {
 }
 
 impl ContentServer {
-    pub fn new(client: Client, base_url: String, username: String, password: String ) -> ContentServer {
+    pub fn new(
+        client: Client,
+        base_url: String,
+        username: String,
+        password: String,
+    ) -> ContentServer {
         ContentServer {
             client,
             base_url: base_url,
@@ -30,38 +35,34 @@ impl ContentServer {
     }
 
     pub fn books_in<'a>(&'a self, category: u64, item: u64, library: &'a str) -> BooksIn<'a> {
-        BooksIn { 
-            num: 100, 
-            offset: 0, 
+        BooksIn {
+            num: 100,
+            offset: 0,
             idx: 0,
             count: 0,
             content: None,
-            category, item, library, content_server: self,
+            category,
+            item,
+            library,
+            content_server: self,
         }
     }
 
     pub fn metadata(&self, book_id: u64, library: &str) -> Result<BookMetadata, Error> {
-        let url = format!(
-            "{}/ajax/book/{}/{}",
-            self.base_url, book_id, library
-        );
+        let url = format!("{}/ajax/book/{}/{}", self.base_url, book_id, library);
 
-        Ok(
-            self.client
-                .get(&url)
-                .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-                .basic_auth(&self.username, Some(&self.password))
-                .send()?
-                .json()?
-        )
+        Ok(self
+            .client
+            .get(&url)
+            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
+            .basic_auth(&self.username, Some(&self.password))
+            .send()?
+            .json()?)
     }
 
     // TODO: don't return a response, probably take a Write or something and call copy_to
     pub fn epub(&self, book_id: u64, library: &str) -> ReqwestResult<reqwest::blocking::Response> {
-        let url = format!(
-            "{}/get/EPUB/{}/{}",
-            self.base_url, book_id, library
-        );
+        let url = format!("{}/get/EPUB/{}/{}", self.base_url, book_id, library);
 
         self.client
             .get(&url)
@@ -77,7 +78,9 @@ pub struct BooksIn<'a> {
     idx: usize,
     count: usize,
     content: Option<Vec<u64>>,
-    category: u64, item: u64, library: &'a str,
+    category: u64,
+    item: u64,
+    library: &'a str,
     content_server: &'a ContentServer,
 }
 
@@ -102,10 +105,15 @@ impl Iterator for BooksIn<'_> {
                 self.content_server.base_url, self.category, self.item, self.library
             );
 
-            let response = self.content_server.client
+            let response = self
+                .content_server
+                .client
                 .get(&url)
                 .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-                .basic_auth(&self.content_server.username, Some(&self.content_server.password))
+                .basic_auth(
+                    &self.content_server.username,
+                    Some(&self.content_server.password),
+                )
                 .query(&query)
                 .send();
 

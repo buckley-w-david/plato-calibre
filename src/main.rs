@@ -1,6 +1,6 @@
-mod settings;
-mod event;
 mod calibre;
+mod event;
+mod settings;
 mod utils;
 
 use anyhow::{format_err, Context, Error};
@@ -14,8 +14,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use event::{Event, Response};
 use calibre::ContentServer;
+use event::{Event, Response};
 
 const SETTINGS_PATH: &str = "Settings.toml";
 
@@ -56,7 +56,12 @@ fn main() -> Result<(), Error> {
         fs::create_dir(&save_path)?;
     }
 
-    let settings::Settings { base_url, username, password, .. } = settings;
+    let settings::Settings {
+        base_url,
+        username,
+        password,
+        ..
+    } = settings;
     let content_server = ContentServer::new(Client::new(), base_url, username, password);
 
     let sigterm = Arc::new(AtomicBool::new(false));
@@ -71,10 +76,17 @@ fn main() -> Result<(), Error> {
 
         let hash_id = fxhash::hash64(&metadata.identifier).to_string();
 
-        if let Some(Response::Search(event)) = (Event::Search{ path: &save_path, query: format!("'i ^{}$", hash_id)}).send() {
+        if let Some(Response::Search(event)) = (Event::Search {
+            path: &save_path,
+            query: format!("'i ^{}$", hash_id),
+        })
+        .send()
+        {
             if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
                 let info = results.first();
-                if let Some(Some(existing_timestamp)) = info.map(|v| v.get("added").and_then(JsonValue::as_str)) {
+                if let Some(Some(existing_timestamp)) =
+                    info.map(|v| v.get("added").and_then(JsonValue::as_str))
+                {
                     if let Ok(tt) = Utc.datetime_from_str(existing_timestamp, "%Y-%m-%d %H:%M:%S") {
                         if (tt - metadata.timestamp).num_seconds() == 0 {
                             // Man this is ugly
@@ -90,7 +102,9 @@ fn main() -> Result<(), Error> {
         let exists = epub_path.exists();
         let mut file = File::create(&epub_path)?;
 
-        let response = content_server.epub(id, &settings.library).and_then(|mut body| body.copy_to(&mut file));
+        let response = content_server
+            .epub(id, &settings.library)
+            .and_then(|mut body| body.copy_to(&mut file));
 
         if let Err(err) = response {
             eprintln!("Can't download {}: {:#}.", id, err);
@@ -119,7 +133,10 @@ fn main() -> Result<(), Error> {
             let event = if !exists {
                 Event::AddDocument(&info)
             } else {
-                Event::UpdateDocument{path: &path, info: &info}
+                Event::UpdateDocument {
+                    path: &path,
+                    info: &info,
+                }
             };
             event.send();
         }
