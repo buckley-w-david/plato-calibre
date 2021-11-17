@@ -2,12 +2,12 @@ mod calibre;
 mod event;
 mod settings;
 mod utils;
+mod types;
 
 use anyhow::{format_err, Context, Error};
 use chrono::prelude::*;
-use chrono::Local;
 use reqwest::blocking::Client;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue};
 use std::env;
 use std::fs::{self, File};
 use std::path::PathBuf;
@@ -16,6 +16,8 @@ use std::sync::Arc;
 
 use calibre::ContentServer;
 use event::{Event, Response};
+use types::{Info, FileInfo};
+
 
 const SETTINGS_PATH: &str = "Settings.toml";
 
@@ -113,30 +115,25 @@ fn main() -> Result<(), Error> {
         }
 
         if let Ok(path) = epub_path.strip_prefix(&library_path) {
-            let file_info = json!({
-                "path": path,
-                "kind": "epub",
-                "size": file.metadata().ok()
+            let file_info = FileInfo {
+                path: path.to_path_buf(),
+                kind: "epub".to_string(),
+                size: file.metadata().ok()
                             .map_or(0, |m| m.len()),
-            });
+            };
 
-            let info = json!({
-                "title": metadata.title,
-                "author": metadata.author,
-                "identifier": hash_id,
-                "file": file_info,
-                "added": metadata.timestamp.with_timezone(&Local)
-                                   .format("%Y-%m-%d %H:%M:%S")
-                                   .to_string(),
-            });
+            let info = Info {
+                title: metadata.title,
+                author: metadata.author,
+                identifier: hash_id,
+                file: file_info,
+                added: metadata.timestamp
+            };
 
             let event = if !exists {
-                Event::AddDocument(&info)
+                Event::AddDocument(info)
             } else {
-                Event::UpdateDocument {
-                    path: &path,
-                    info: &info,
-                }
+                Event::UpdateDocument(path, info)
             };
             event.send();
         }

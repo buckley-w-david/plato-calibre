@@ -2,6 +2,8 @@ use serde_json::{json, Value as JsonValue};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::types::Info;
+
 // Events that we send
 pub enum Event<'a> {
     Notify(&'a str),
@@ -10,11 +12,8 @@ pub enum Event<'a> {
         path: &'a PathBuf,
         query: String,
     },
-    AddDocument(&'a serde_json::Value),
-    UpdateDocument {
-        path: &'a Path,
-        info: &'a serde_json::Value,
-    },
+    AddDocument(Info),
+    UpdateDocument(&'a Path, Info),
 }
 
 // Events that we receive
@@ -45,18 +44,17 @@ impl Event<'_> {
                     "query": query,
                 })
             }
-            // TODO: Should I made a real info struct?
             Event::AddDocument(info) => {
                 json!({
                     "type": "addDocument",
                     "info": &info,
                 })
             }
-            Event::UpdateDocument { path, info } => {
+            Event::UpdateDocument (path, info) => {
                 json!({
                     "type": "updateDocument",
                     "path": path,
-                    "info": &info,
+                    "info": info,
                 })
             }
         };

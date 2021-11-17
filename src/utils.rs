@@ -1,6 +1,13 @@
 pub mod datetime_format {
     use chrono::{DateTime, Utc};
-    use serde::{self, Deserialize, Deserializer};
+    use serde::{self, Deserialize, Serializer, Deserializer};
+
+    pub const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
+    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let s = format!("{}", date.format(FORMAT));
+        serializer.serialize_str(&s)
+    }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where

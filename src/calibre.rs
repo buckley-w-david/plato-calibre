@@ -28,9 +28,9 @@ impl ContentServer {
     ) -> ContentServer {
         ContentServer {
             client,
-            base_url: base_url,
-            username: username,
-            password: password,
+            base_url,
+            username,
+            password,
         }
     }
 
