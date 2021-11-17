@@ -60,15 +60,16 @@ impl ContentServer {
             .json()?)
     }
 
-    // TODO: don't return a response, probably take a Write or something and call copy_to
-    pub fn epub(&self, book_id: u64, library: &str) -> ReqwestResult<reqwest::blocking::Response> {
+    pub fn epub<W: ?Sized>(&self, book_id: u64, library: &str, w: &mut W) -> Result<u64, reqwest::Error> 
+        where W: std::io::Write
+    {
         let url = format!("{}/get/EPUB/{}/{}", self.base_url, book_id, library);
 
         self.client
             .get(&url)
             .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
             .basic_auth(&self.username, Some(&self.password))
-            .send()
+            .send().and_then(|mut body| body.copy_to(w))
     }
 }
 

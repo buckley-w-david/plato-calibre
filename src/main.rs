@@ -105,8 +105,7 @@ fn main() -> Result<(), Error> {
         let mut file = File::create(&epub_path)?;
 
         let response = content_server
-            .epub(id, &settings.library)
-            .and_then(|mut body| body.copy_to(&mut file));
+            .epub(id, &settings.library, &mut file);
 
         if let Err(err) = response {
             eprintln!("Can't download {}: {:#}.", id, err);
