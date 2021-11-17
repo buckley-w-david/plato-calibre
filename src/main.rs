@@ -56,7 +56,8 @@ fn main() -> Result<(), Error> {
         fs::create_dir(&save_path)?;
     }
 
-    let content_server = ContentServer::new(Client::new(), &settings);
+    let settings::Settings { base_url, username, password, .. } = settings;
+    let content_server = ContentServer::new(Client::new(), base_url, username, password);
 
     let sigterm = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&sigterm))?;
@@ -122,7 +123,6 @@ fn main() -> Result<(), Error> {
             };
             event.send();
         }
-        break;
     }
 
     Event::Notify("Finished syncing books!").send();
