@@ -9,7 +9,7 @@ pub struct Settings {
     pub base_url: String,
     pub username: Option<String>,
     pub password: Option<String>,
-    pub identifier: String,
+    pub identifier: Option<String>,
     pub category: u64,
     pub item: u64,
     pub library: String,

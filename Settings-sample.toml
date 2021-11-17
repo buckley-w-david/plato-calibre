@@ -5,8 +5,9 @@ base_url = "?"
 # username = "?"
 # password = "?"
 
-# Each book needs an identifier
-identifier = "?"
+# If you have identifiers set for your books, they are used as identifiers in plato
+# If not set the title is used
+# identifier = "?"
 
 # Category information
 category = 1

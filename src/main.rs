@@ -75,10 +75,14 @@ fn main() -> Result<(), Error> {
 
         let metadata = content_server.metadata(id, &settings.library)?;
 
-        let calibre_id = &metadata
-            .identifiers
-            .get(&settings.identifier)
-            .ok_or(PlatoCalibreError::new("Unable to find identifier"))?;
+        let calibre_id = if let Some(identifier) = &settings.identifier {
+            &metadata
+                .identifiers
+                .get(identifier)
+                .ok_or(PlatoCalibreError::new("Unable to find identifier"))?
+        } else {
+            &metadata.title
+        };
         let hash_id = fxhash::hash64(calibre_id).to_string();
 
         if let Some(Response::Search(event)) = (Event::Search {
