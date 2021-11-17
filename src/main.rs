@@ -1,6 +1,7 @@
 mod settings;
 mod event;
 mod calibre;
+mod utils;
 
 use anyhow::{format_err, Context, Error};
 use chrono::prelude::*;
@@ -13,14 +14,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use const_format::concatcp;
 use event::{Event, Response};
+use calibre::ContentServer;
 
 const SETTINGS_PATH: &str = "Settings.toml";
-
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const NAME: &'static str = env!("CARGO_PKG_NAME");
-const USER_AGENT: &'static str = concatcp!(NAME, " ", VERSION);
 
 fn main() -> Result<(), Error> {
     let mut args = env::args().skip(1);
@@ -59,61 +56,26 @@ fn main() -> Result<(), Error> {
         fs::create_dir(&save_path)?;
     }
 
-    let client = Client::new();
+    let content_server = ContentServer::new(Client::new(), &settings);
 
     let sigterm = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&sigterm))?;
 
-    for id in calibre::books_in(&client, &settings) {
+    for id in content_server.books_in(settings.category, settings.item, &settings.library) {
         if sigterm.load(Ordering::Relaxed) {
             break;
         }
 
-        let url = format!(
-            "{}/ajax/book/{}/{}",
-            &settings.base_url, id, &settings.library
-        );
+        let metadata = content_server.metadata(id, &settings.library)?;
 
-        let metadata: JsonValue = client
-            .get(&url)
-            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-            .basic_auth(&settings.username, Some(&settings.password))
-            .send()?
-            .json()?;
-
-        let title = metadata
-            .get("title")
-            .and_then(JsonValue::as_str)
-            .unwrap_or_default();
-
-        let author = metadata
-            .get("authors")
-            .and_then(JsonValue::as_array)
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap())
-            .collect::<Vec<&str>>()
-            .join(", ");
-
-        let timestamp = metadata
-            .get("timestamp")
-            .and_then(JsonValue::as_str)
-            .unwrap_or_default()
-            .parse::<DateTime<Utc>>()
-            .unwrap_or(Utc::now());
-
-        let url_id = metadata
-            .pointer("/identifiers/url")
-            .and_then(JsonValue::as_str)
-            .unwrap_or_default();
-        let hash_id = fxhash::hash64(url_id).to_string();
+        let hash_id = fxhash::hash64(&metadata.identifier).to_string();
 
         if let Some(Response::Search(event)) = (Event::Search{ path: &save_path, query: format!("'i ^{}$", hash_id)}).send() {
             if let Some(results) = event.get("results").and_then(JsonValue::as_array) {
                 let info = results.first();
                 if let Some(Some(existing_timestamp)) = info.map(|v| v.get("added").and_then(JsonValue::as_str)) {
                     if let Ok(tt) = Utc.datetime_from_str(existing_timestamp, "%Y-%m-%d %H:%M:%S") {
-                        if (tt - timestamp).num_seconds() == 0 {
+                        if (tt - metadata.timestamp).num_seconds() == 0 {
                             // Man this is ugly
                             // If the added time close enough, don't sync
                             continue;
@@ -126,17 +88,8 @@ fn main() -> Result<(), Error> {
         let epub_path = save_path.join(&format!("{}.epub", hash_id));
         let exists = epub_path.exists();
         let mut file = File::create(&epub_path)?;
-        let url = format!(
-            "{}/get/EPUB/{}/{}",
-            &settings.base_url, id, &settings.library
-        );
 
-        let response = client
-            .get(&url)
-            .header(reqwest::header::USER_AGENT, USER_AGENT.to_string())
-            .basic_auth(&settings.username, Some(&settings.password))
-            .send()
-            .and_then(|mut body| body.copy_to(&mut file));
+        let response = content_server.epub(id, &settings.library).and_then(|mut body| body.copy_to(&mut file));
 
         if let Err(err) = response {
             eprintln!("Can't download {}: {:#}.", id, err);
@@ -153,11 +106,11 @@ fn main() -> Result<(), Error> {
             });
 
             let info = json!({
-                "title": title,
-                "author": author,
+                "title": metadata.title,
+                "author": metadata.author,
                 "identifier": hash_id,
                 "file": file_info,
-                "added": timestamp.with_timezone(&Local)
+                "added": metadata.timestamp.with_timezone(&Local)
                                    .format("%Y-%m-%d %H:%M:%S")
                                    .to_string(),
             });
