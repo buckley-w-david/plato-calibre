@@ -106,7 +106,6 @@ fn main() -> Result<(), Error> {
         {
             if let Some(info) = event.results.first() {
                 if info.added == metadata.timestamp.with_nanosecond(0).unwrap() {
-                    println!("Skipping!");
                     logger.debug(&format!("Skipping {}", info.title));
                     continue;
                 }

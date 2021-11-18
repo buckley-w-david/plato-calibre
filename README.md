@@ -29,6 +29,8 @@ $ cp target/arm-unknown-linux-gnueabihf/release/plato-calibre "$KOBO_MOUNT_DIR/.
 $ cp Settings-sample.toml "$KOBO_MOUNT_DIR/.adds/plato/bin/plato-calibre/Settings.toml"
 ```
 
+Alternativly, you can try the `deploy.sh` script in the repo.
+
 Once that's done you'll need to add the hook to your Plato settings file `$KOBO_MOUNT_DIR/.adds/plato/Settings.toml`.
 ```toml
 [[libraries.hooks]]
