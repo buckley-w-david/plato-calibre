@@ -13,6 +13,13 @@ pub struct Settings {
     pub category: u64,
     pub item: u64,
     pub library: String,
+    #[serde(default = "one")]
+    pub log: u64,
+}
+
+// Is this really the correct way to put a default value?
+fn one() -> u64 {
+    1
 }
 
 pub fn load_toml<T, P: AsRef<Path>>(path: P) -> Result<T, Error>

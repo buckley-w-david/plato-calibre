@@ -3,6 +3,7 @@ mod error;
 mod event;
 mod settings;
 mod types;
+mod logger;
 
 use anyhow::{format_err, Context, Error};
 use chrono::prelude::*;
@@ -17,6 +18,7 @@ use calibre::ContentServer;
 use event::{Event, Response};
 use types::{FileInfo, Info};
 use error::PlatoCalibreError;
+use logger::Logger;
 
 const SETTINGS_PATH: &str = "Settings.toml";
 
@@ -42,18 +44,26 @@ fn main() -> Result<(), Error> {
     let settings = settings::load_toml::<settings::Settings, _>(SETTINGS_PATH)
         .with_context(|| format!("can't load settings from {}", SETTINGS_PATH))?;
 
+    let settings::Settings { log ,.. } = settings;
+    let logger = Logger::new(log);
+    logger.debug("Starting plato-calibre!");
+
     if !online {
+        logger.debug("Not online!");
         if !wifi {
-            Event::Notify("Establishing a network connection.").send();
+            logger.debug("Wifi is off!");
+            logger.status("Establishing a network connection.");
             Event::SetWifi(true).send();
         } else {
-            Event::Notify("Waiting for the network to come up.").send();
+            logger.debug("Wifi is on!");
+            logger.status("Waiting for the network to come up.");
             // Throw away network coming up event
             let _event = Response::receive();
         }
     }
 
     if !save_path.exists() {
+        logger.debug("Creating save directory");
         fs::create_dir(&save_path)?;
     }
 
@@ -70,17 +80,20 @@ fn main() -> Result<(), Error> {
 
     for id in content_server.books_in(settings.category, settings.item, &settings.library) {
         if sigterm.load(Ordering::Relaxed) {
+            logger.debug("Bye bye!");
             break;
         }
 
         let metadata = content_server.metadata(id, &settings.library)?;
 
         let calibre_id = if let Some(identifier) = &settings.identifier {
+            logger.debug(&format!("Using identifier: {}", &identifier));
             &metadata
                 .identifiers
                 .get(identifier)
                 .ok_or(PlatoCalibreError::new("Unable to find identifier"))?
         } else {
+            logger.debug(&format!("Falling back to title id: {}", &metadata.title));
             &metadata.title
         };
         let hash_id = fxhash::hash64(calibre_id).to_string();
@@ -94,8 +107,10 @@ fn main() -> Result<(), Error> {
             if let Some(info) = event.results.first() {
                 if info.added == metadata.timestamp.with_nanosecond(0).unwrap() {
                     println!("Skipping!");
+                    logger.debug(&format!("Skipping {}", info.title));
                     continue;
                 }
+                logger.debug(&format!("Found existing book {}", &metadata.title));
             }
         }
 
@@ -107,11 +122,18 @@ fn main() -> Result<(), Error> {
 
         if let Err(err) = response {
             eprintln!("Can't download {}: {:#}.", id, err);
+            logger.error(&format!("Can't download {}: {:#}.", id, err));
             fs::remove_file(epub_path).ok();
             continue;
         }
 
         if let Ok(path) = epub_path.strip_prefix(&library_path) {
+            if !exists {
+                logger.verbose(&format!("Adding new book {}", &metadata.title));
+            } else {
+                logger.verbose(&format!("Updating existing book {}", &metadata.title));
+            }
+
             let file_info = FileInfo {
                 path: path.to_path_buf(),
                 kind: "epub".to_string(),
@@ -135,7 +157,7 @@ fn main() -> Result<(), Error> {
         }
     }
 
-    Event::Notify("Finished syncing books!").send();
+    logger.status("Finished syncing books!");
 
     Ok(())
 }

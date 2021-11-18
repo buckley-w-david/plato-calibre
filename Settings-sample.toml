@@ -15,3 +15,10 @@ item = 2
 
 # Which library is everything in (category, item, and the books themselves)
 library = "calibre-library"
+
+# "log" level - How much information to notify about, default if unset is 1
+# 0 - Errors only
+# 1 - Status: Network status, and "all done" message
+# 2 - Verbose: Changes (new books synced and updates to existing books)
+# 3 - Debug mode, log all the things
+# log = 1
