@@ -1,6 +1,6 @@
 # plato-calibre
 
-This is a [Plato hook](https://github.com/baskerville/plato/blob/master/doc/HOOKS.md) to download/sync books from calibre. Specifically it is meant to sync webserials that have been downloaded from RoyalRoad.
+This is a [Plato hook](https://github.com/baskerville/plato/blob/master/doc/HOOKS.md) to download/sync books from calibre.
 
 It will automatically fetch books from a specified category in a [calibre content server](https://manual.calibre-ebook.com/server.html) instance.
 
